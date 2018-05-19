@@ -6,6 +6,10 @@
 
 Progress is a go library for creating a live progress bar into slack. Inspiration came from [slack-progress](https://github.com/bcicen/slack-progress/).
 
+## Demo
+
+![Slack Progress Bar](https://github.com/sfreiberg/progress/blob/master/demo.gif)
+
 ## Example
 
 ```go
