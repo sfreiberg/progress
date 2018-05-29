@@ -5,6 +5,7 @@ import (
 	"errors"
 	"strings"
 	"text/template"
+	"time"
 
 	"github.com/nlopes/slack"
 )
@@ -21,13 +22,14 @@ var (
 
 // Options can be used to customize look of the progress bar. DefaultOptions() has pretty good defaults.
 type Options struct {
-	Fill       string // The character(s) used to fill in the progress bar
-	Empty      string // The character(s) used to indicate empty space at the end of progress bar
-	Width      int    // How many characters wide the progress bar should be. A value of 10 looks good on slack phone clients.
-	TotalUnits int    // Total possible units. Graph will always display 0-100%.
-	Msg        string // The message template that will be sent to slack. Uses text/template for creating templates.
-	Task       string // Name of the task we are showing progress for.
-	AsUser     bool   // Whether or not to post as the user. If false posts as a generic bot and doesn't show edited next to messages. If true the opposite of both is true. Defaults to false.
+	Fill        string // The character(s) used to fill in the progress bar
+	Empty       string // The character(s) used to indicate empty space at the end of progress bar
+	Width       int    // How many characters wide the progress bar should be. A value of 10 looks good on slack phone clients.
+	TotalUnits  int    // Total possible units. Graph will always display 0-100%.
+	Msg         string // The message template that will be sent to slack. Uses text/template for creating templates.
+	Task        string // Name of the task we are showing progress for.
+	AsUser      bool   // Whether or not to post as the user. If false posts as a generic bot and doesn't show edited next to messages. If true the opposite of both is true. Defaults to false.
+	ShowEstTime bool   // Whether or not to show estimated time remaining
 }
 
 // DefaultOptions creates an Options struct with decent defaults.
@@ -37,15 +39,20 @@ func DefaultOptions(task string) *Options {
 		Empty:      "⬜",
 		Width:      10, // Looks good on slack phone clients
 		TotalUnits: 100,
-		Msg:        "{{.Task}}\n`{{.ProgBar}}` {{.Pos}}%",
-		Task:       task,
+		Msg: "{{.Task}}\n`{{.ProgBar}}` {{.Pos}}%\n" +
+			"{{ if .ShowEstTime }}" +
+			"{{ if .Complete }}Completed in *{{ .Elapsed }}*" +
+			"{{ else }}{{ .Remaining }} remaining...{{ end }}" +
+			"{{ end }}",
+		Task:        task,
+		ShowEstTime: true,
 	}
 }
 
 // Progress is a struct that creates the progress bar in slack
 type Progress struct {
-	Opts *Options
-
+	Opts    *Options
+	Start   time.Time     // When the task began running. Initialized to current time when New() is called.
 	client  *slack.Client // Slack client
 	channel string        // Channel to post progress bar to
 	ts      string        // The last timestamp we saw. Used for editing the progress bar
@@ -103,9 +110,13 @@ func (p *Progress) msg(pos int) (string, error) {
 	msg := &strings.Builder{}
 
 	data := map[string]interface{}{
-		"Task":    p.Opts.Task,
-		"ProgBar": p.drawBar(pos),
-		"Pos":     pos,
+		"Task":        p.Opts.Task,
+		"ProgBar":     p.drawBar(pos),
+		"Pos":         pos,
+		"Remaining":   p.remaining(pos),
+		"Complete":    pos == 100,
+		"Elapsed":     time.Now().Sub(p.Start).Round(time.Millisecond),
+		"ShowEstTime": p.Opts.ShowEstTime,
 	}
 
 	tmpl, err := template.New("msg").Parse(p.Opts.Msg)
@@ -117,12 +128,24 @@ func (p *Progress) msg(pos int) (string, error) {
 	return msg.String(), err
 }
 
+// Calculate the remaining time
+func (p *Progress) remaining(pct int) time.Duration {
+	elapsed := time.Now().Sub(p.Start)
+	estTime := time.Duration(elapsed.Nanoseconds() / int64(pct) * int64(100))
+	remaining := estTime - elapsed
+	return remaining.Round(time.Second)
+}
+
 // New creates a new progress bar. If opts is nil then Progress will be created
-// with DefaultOptions.
+// with DefaultOptions. The timer that is used for calculating time remaining
+// is based on when this is instantiated so if it's not called around the time
+// the task begins running it might report inaccurate results. You can fix this
+// by setting Progress.Start manually.
 func New(token, channel string, opts *Options) *Progress {
 	progress := &Progress{
 		client:  slack.New(token),
 		channel: channel,
+		Start:   time.Now(),
 		Opts:    opts,
 	}
 
