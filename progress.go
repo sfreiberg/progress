@@ -89,7 +89,7 @@ func (p *Progress) Update(pos int) error {
 		return err
 	}
 
-	_, ts, _, err := p.client.UpdateMessage(p.channel, p.ts, msg)
+	_, ts, _, err := p.client.UpdateMessage(p.channel, p.ts, slack.MsgOptionText(msg, false))
 	p.ts = ts
 	p.lastPct = pct
 	return err
