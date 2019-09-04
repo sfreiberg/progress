@@ -1,11 +1,9 @@
-package progress_test
+package progress
 
 import (
 	"log"
 	"os"
 	"testing"
-
-	"github.com/sfreiberg/progress"
 )
 
 func TestProgressBar(t *testing.T) {
@@ -18,7 +16,7 @@ func TestProgressBar(t *testing.T) {
 		t.Fatalf("You must set the SLACK_TOKEN and SLACK_CHANNEL environment variables.")
 	}
 
-	pbar := progress.New(token, channel, nil)
+	pbar := New(token, channel, nil)
 
 	for i := 0; i <= pbar.Opts.TotalUnits; i++ {
 		if err := pbar.Update(i); err != nil {

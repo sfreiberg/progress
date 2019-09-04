@@ -1,4 +1,4 @@
-package progress_test
+package main
 
 import (
 	"log"
@@ -6,7 +6,7 @@ import (
 	"github.com/sfreiberg/progress"
 )
 
-func ExampleProgress() {
+func main() {
 	token := "super-secret-slack-token"
 	channel := "demo"
 
