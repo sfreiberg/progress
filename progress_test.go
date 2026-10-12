@@ -15,7 +15,7 @@ func TestProgressBar(t *testing.T) {
 	)
 
 	if token == "" || channel == "" {
-		t.Fatalf("You must set the SLACK_TOKEN and SLACK_CHANNEL environment variables.")
+		t.Skip("SLACK_TOKEN and SLACK_CHANNEL not set; skipping integration test.")
 	}
 
 	pbar := progress.New(token, channel, nil)
