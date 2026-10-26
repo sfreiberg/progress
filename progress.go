@@ -7,7 +7,7 @@ import (
 	"text/template"
 	"time"
 
-	"github.com/nlopes/slack"
+	"github.com/slack-go/slack"
 )
 
 var (

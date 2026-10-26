@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/nlopes/slack"
+	"github.com/slack-go/slack"
 )
 
 func TestDrawBar(t *testing.T) {
