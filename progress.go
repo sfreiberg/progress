@@ -7,7 +7,7 @@ import (
 	"text/template"
 	"time"
 
-	"github.com/nlopes/slack"
+	"github.com/slack-go/slack"
 )
 
 var (
@@ -69,7 +69,8 @@ func (p *Progress) Update(pos int) error {
 		return ErrMaxPosExceeded
 	}
 
-	pct := int(float32(pos) / float32(p.Opts.TotalUnits) * 100)
+	// Integer math avoids float32 rounding (e.g. 53/100 became 52%).
+	pct := pos * 100 / p.Opts.TotalUnits
 	if pct <= p.lastPct { // We haven't progressed so no need to update slack
 		return nil
 	}
@@ -85,31 +86,36 @@ func (p *Progress) Update(pos int) error {
 			slack.MsgOptionText(msg, false),
 			slack.MsgOptionAsUser(p.Opts.AsUser),
 		}
-		p.channel, p.ts, _, err = p.client.SendMessage(p.channel, msgOpts...)
-		return err
+		channel, ts, _, err := p.client.SendMessage(p.channel, msgOpts...)
+		if err != nil {
+			// Keep the original channel so the next call can retry.
+			return err
+		}
+		p.channel, p.ts, p.lastPct = channel, ts, pct
+		return nil
 	}
 
 	_, ts, _, err := p.client.UpdateMessage(p.channel, p.ts, slack.MsgOptionText(msg, false))
+	if err != nil {
+		// Keep the existing timestamp so a transient failure doesn't make the
+		// next call post a second progress bar.
+		return err
+	}
 	p.ts = ts
 	p.lastPct = pct
-	return err
+	return nil
 }
 
 func (p *Progress) drawBar(pos int) string {
-	if pos == 0 {
-		return strings.Repeat(p.Opts.Empty, p.Opts.Width)
-	}
-
-	bar := strings.Repeat(p.Opts.Fill, pos/p.Opts.Width)
-	bar += strings.Repeat(p.Opts.Empty, p.Opts.Width-len([]rune(bar)))
-
-	return bar
+	// pos is a percentage; scale it to the width of the bar.
+	filled := min(max(pos*p.Opts.Width/100, 0), p.Opts.Width)
+	return strings.Repeat(p.Opts.Fill, filled) + strings.Repeat(p.Opts.Empty, p.Opts.Width-filled)
 }
 
 func (p *Progress) msg(pos int) (string, error) {
 	msg := &strings.Builder{}
 
-	data := map[string]interface{}{
+	data := map[string]any{
 		"Task":        p.Opts.Task,
 		"ProgBar":     p.drawBar(pos),
 		"Pos":         pos,
