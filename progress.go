@@ -109,7 +109,7 @@ func (p *Progress) drawBar(pos int) string {
 func (p *Progress) msg(pos int) (string, error) {
 	msg := &strings.Builder{}
 
-	data := map[string]interface{}{
+	data := map[string]any{
 		"Task":        p.Opts.Task,
 		"ProgBar":     p.drawBar(pos),
 		"Pos":         pos,
